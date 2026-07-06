@@ -1,0 +1,10 @@
+_build/
+*.install
+*.cm*
+*.annot
+*.orig
+.DS_Store
+.env
+data/*.csv
+data/*.json
+!data/.gitkeep
