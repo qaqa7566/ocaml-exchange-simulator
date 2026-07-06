@@ -41,9 +41,11 @@ engine, deterministic replay of recorded order streams, and benchmarking.
 
 ### Library modules (`lib/`)
 
-- `types.ml` — shared domain types (side, order type, ids, price, quantity,
-  timestamp).
-- `order.ml` — the order representation and validation.
+- `types.ml` — shared domain types: `side` plus typed scalar wrappers
+  (`Order_id`, `Price_ticks`, `Quantity`, `Timestamp`) whose smart
+  constructors keep quantities and prices strictly positive.
+- `order.ml` — the order representation (`Limit` / `Market` / `Cancel`, each
+  carrying only the fields that kind needs) and its validating constructors.
 - `order_book.ml` — resting bids/asks organized by price-time priority.
 - `matching_engine.ml` — matches incoming orders against the book, producing
   fills.
