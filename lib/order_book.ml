@@ -107,6 +107,51 @@ let cancel book id : (t, cancel_error) result =
       let book = set_side_map book side map in
       Ok { book with index = Id_map.remove id book.index }
 
+(** [reduce book id by] decreases the resting order [id]'s quantity by [by]
+    units while preserving its position in its price level — and therefore its
+    time priority. If [by] equals the whole resting quantity the order is
+    removed and an emptied level pruned, exactly as {!cancel} would; otherwise
+    the order is replaced in place by a copy carrying [resting - by] units (still
+    positive, so a valid [Quantity.t]).
+
+    This is the primitive the matching engine uses to consume liquidity.
+    [cancel] followed by [add] cannot substitute for it: [add] appends to the
+    {e tail} of a price level, which would demote a partially-filled resting
+    order behind any same-price orders that arrived after it, violating FIFO.
+
+    Raises [Invalid_argument] if no resting order has [id], or if [by] exceeds
+    the resting quantity. Both are caller-side invariant violations (the engine
+    only ever reduces an order it just read, by at most its available quantity),
+    handled the same way as the other "impossible" states in this module. *)
+let reduce book id (by : Quantity.t) : t =
+  match Id_map.find_opt id book.index with
+  | None -> invalid_arg "Order_book.reduce: unknown order id"
+  | Some (Order.Market _ | Order.Cancel _) ->
+      invalid_arg "Order_book.reduce: non-limit order found resting (should be impossible)"
+  | Some (Order.Limit { side; price; quantity = resting_qty; timestamp; _ }) -> (
+      match Quantity.compare by resting_qty with
+      | c when c > 0 -> invalid_arg "Order_book.reduce: reduction exceeds resting quantity"
+      | 0 -> ( match cancel book id with Ok b -> b | Error _ -> assert false)
+      | _ ->
+          let new_qty = Quantity.to_int resting_qty - Quantity.to_int by in
+          let new_order =
+            match
+              Order.limit ~id ~side ~price:(Price_ticks.to_int price) ~quantity:new_qty
+                ~timestamp
+            with
+            | Ok o -> o
+            | Error _ -> assert false (* new_qty > 0 and price was already valid *)
+          in
+          let map = side_map book side in
+          let level = Option.value ~default:[] (Price_map.find_opt price map) in
+          (* replace the order in its slot, leaving every other position intact *)
+          let level =
+            List.map (fun o -> if Order_id.equal (Order.id o) id then new_order else o) level
+          in
+          let map = Price_map.add price level map in
+          let book = set_side_map book side map in
+          { book with index = Id_map.add id new_order book.index })
+
 (** [best_bid book] is the highest-priced resting bid, and among those the
     earliest to arrive, or [None] if there are no bids. *)
 let best_bid book =
