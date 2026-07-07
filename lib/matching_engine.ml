@@ -75,6 +75,16 @@ let opposing_best book = function
   | Buy -> Order_book.best_ask book
   | Sell -> Order_book.best_bid book
 
+(* Consume [qty] units from the best order on the side [incoming_side] trades
+   against — the same order [opposing_best] just returned, since the book is
+   unchanged between the two calls. The book exposes this best-order primitive
+   rather than a raw reduce-by-id, so the engine never touches the book's
+   internal id indexing. *)
+let consume_opposing_best book incoming_side qty =
+  match incoming_side with
+  | Buy -> Order_book.reduce_best_ask book qty
+  | Sell -> Order_book.reduce_best_bid book qty
+
 (* Would an aggressor of [incoming_side] at [limit] accept a trade at the resting
    price [rprice]? A market order ([limit = None]) accepts any price; a limit buy
    accepts asks at or below its price, a limit sell accepts bids at or above it. *)
@@ -113,9 +123,10 @@ let match_against book ~incoming_side ~incoming_id ~limit ~remaining =
             let fill =
               { resting_id; incoming_id; price = rprice; quantity = traded_q; incoming_side }
             in
-            (* [reduce] removes the resting order when [traded] exhausts it and
-               otherwise shrinks it in place, keeping its time-priority slot. *)
-            let book = Order_book.reduce book resting_id traded_q in
+            (* Consuming the best opposing order removes it when [traded]
+               exhausts it and otherwise shrinks it in place, keeping its
+               time-priority slot. *)
+            let book = consume_opposing_best book incoming_side traded_q in
             loop book (fill :: fills_rev) (remaining - traded)
   in
   loop book [] remaining

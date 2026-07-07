@@ -219,6 +219,24 @@ let best_ask book =
   | Some (_price, entry :: _) -> Some entry.order
   | Some (_, []) | None -> None
 
+(** [reduce_best_bid book by] consumes [by] units from the current best bid via
+    {!reduce}, so the reduced order keeps its time-priority slot. Raises
+    [Invalid_argument] if there is no resting bid. This is the liquidity-consuming
+    primitive the matching engine uses when a sell hits the book; exposing it
+    (rather than [reduce] by arbitrary id) keeps the id-keyed mutation and its
+    invariants internal. *)
+let reduce_best_bid book (by : Quantity.t) : t =
+  match best_bid book with
+  | None -> invalid_arg "Order_book.reduce_best_bid: no resting bid"
+  | Some order -> reduce book (Order.id order) by
+
+(** [reduce_best_ask book by] is the ask-side counterpart, used when a buy lifts
+    the book. Raises [Invalid_argument] if there is no resting ask. *)
+let reduce_best_ask book (by : Quantity.t) : t =
+  match best_ask book with
+  | None -> invalid_arg "Order_book.reduce_best_ask: no resting ask"
+  | Some order -> reduce book (Order.id order) by
+
 (** [find book id] is the resting order with this id, or [None]. *)
 let find book id = Option.map (fun e -> e.order) (Id_map.find_opt id book.index)
 
