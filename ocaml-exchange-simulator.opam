@@ -6,6 +6,7 @@ description:
 depends: [
   "ocaml" {>= "4.14"}
   "dune" {>= "3.0"}
+  "qcheck-core" {>= "0.20" & with-test}
   "odoc" {with-doc}
 ]
 build: [

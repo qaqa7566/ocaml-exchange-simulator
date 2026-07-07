@@ -21,8 +21,12 @@ engine, deterministic replay of recorded order streams, and benchmarking.
   order-size caps) that can reject an order before it reaches the book.
 - **Deterministic replay**: a recorded stream of orders always produces the
   exact same fills and final book state — no wall-clock time, no randomness.
-- **Invariant-based tests**: tests assert structural and matching invariants
-  rather than only hard-coded input/output pairs.
+- **Property-based tests**: alongside the hand-written scenario suites,
+  [QCheck](https://github.com/c-cube/qcheck) generates thousands of random
+  order streams (unique ids, valid positive prices/quantities, buy/sell limit
+  and market orders, cancels targeting earlier ids, out-of-order timestamps)
+  and asserts the matching invariants hold for every one — shrinking any
+  failure to a minimal, printed counterexample.
 - **Benchmarking**: measures matching throughput and per-order processing
   cost.
 
@@ -33,7 +37,7 @@ engine, deterministic replay of recorded order streams, and benchmarking.
 ├── bin/     Command-line entry point (main.ml)
 ├── lib/     Core library (types, order, order book, matching engine,
 │            risk engine, replay, metrics)
-├── test/    Invariant-based tests for the order book and matching engine
+├── test/    Scenario and property-based (QCheck) tests for the engine
 ├── bench/   Throughput and latency benchmarks
 ├── data/    Recorded order streams for replay (gitignored except .gitkeep)
 ├── dune-project
@@ -56,7 +60,10 @@ engine, deterministic replay of recorded order streams, and benchmarking.
 
 ## Core invariants
 
-These hold at all times and are the basis for the test suite:
+These hold at all times and are the basis for the test suite — the QCheck
+property tests in `test/test_properties.ml` assert several of them (no crossed
+book, quantity conservation, market orders never resting, timestamp priority,
+unique resting ids, replay determinism) against randomly generated streams:
 
 1. **Sorted book** — bids are ordered by descending price, asks by ascending
    price. The best bid and best ask are always at the front of their sides.

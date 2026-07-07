@@ -4,3 +4,9 @@
  (deps
   (glob_files %{project_root}/data/*.csv))
  (libraries exchange))
+
+; Property-based tests use generated order streams (QCheck), so they carry the
+; extra QCheck dependency the assertion-based suites above do not need.
+(test
+ (name test_properties)
+ (libraries exchange qcheck-core qcheck-core.runner))

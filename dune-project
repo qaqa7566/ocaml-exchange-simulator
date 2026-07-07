@@ -12,4 +12,8 @@
  (depends
   (ocaml
    (>= 4.14))
-  dune))
+  dune
+  (qcheck-core
+   (and
+    (>= 0.20)
+    :with-test))))
