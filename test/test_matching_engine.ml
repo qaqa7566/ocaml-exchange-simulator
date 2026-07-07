@@ -1,11 +1,11 @@
-(** Invariant-based tests for the matching engine (Phase 3).
+(** Invariant-based tests for the matching engine.
 
     Dependency-free in the same style as {!test_order_book}: each check is an
     [assert]-style guard with a label, so a failure aborts the run and names the
     offending case. These exercise the matching contract — price-time priority,
     partial fills and remainders, better-price execution, market orders never
     resting, cancellation, quantity conservation, and the "no crossed book"
-    invariant that only holds once matching exists. *)
+    invariant that only holds once matching is applied. *)
 
 open Exchange
 open Types

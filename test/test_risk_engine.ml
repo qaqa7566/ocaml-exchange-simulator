@@ -157,7 +157,7 @@ let () =
   check_that "purity: kill switch unchanged after checks"
     (not (is_kill_switch st acct))
 
-(* --- Fill-driven position updates (Phase 5 API) ---------------------- *)
+(* --- Fill-driven position updates ------------------------------------ *)
 
 let () =
   let st = empty base_limits in

@@ -2,9 +2,9 @@
 
     Consumes incoming orders and matches them against the resting {!Order_book}
     under price-time priority, producing fills (including partial fills) and
-    resting remainders. This is the active counterpart to the passive Phase 2
-    book: the book stores and orders resting liquidity, and this module decides
-    what crosses.
+    resting remainders. This is the active counterpart to the passive book: the
+    book stores and orders resting liquidity, and this module decides what
+    crosses.
 
     {2 Priority}
 

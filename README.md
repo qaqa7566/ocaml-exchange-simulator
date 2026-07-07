@@ -2,11 +2,11 @@
 
 An exchange simulator and risk engine written in OCaml. It models a
 central limit order book (CLOB) with a matching engine, a pre-trade risk
-engine, deterministic replay of recorded order streams, and benchmarking.
+engine, and deterministic replay of recorded order streams.
 
 > **Status:** the order book, matching engine, risk engine, and a deterministic
-> end-to-end replay with a CLI are implemented. Async, networking, and
-> benchmarks are not built yet.
+> end-to-end replay with a CLI are implemented. Async and networking are not
+> built yet.
 
 ## What it does
 
@@ -27,8 +27,6 @@ engine, deterministic replay of recorded order streams, and benchmarking.
   and market orders, cancels targeting earlier ids, out-of-order timestamps)
   and asserts the matching invariants hold for every one — shrinking any
   failure to a minimal, printed counterexample.
-- **Benchmarking**: measures matching throughput and per-order processing
-  cost.
 
 ## Folder structure
 
@@ -38,8 +36,7 @@ engine, deterministic replay of recorded order streams, and benchmarking.
 ├── lib/     Core library (types, order, order book, matching engine,
 │            risk engine, replay, metrics)
 ├── test/    Scenario and property-based (QCheck) tests for the engine
-├── bench/   Throughput and latency benchmarks
-├── data/    Recorded order streams for replay (gitignored except .gitkeep)
+├── data/    Recorded order streams for replay (only the example is committed)
 ├── dune-project
 └── ocaml-exchange-simulator.opam
 ```
@@ -56,7 +53,7 @@ engine, deterministic replay of recorded order streams, and benchmarking.
   fills.
 - `risk_engine.ml` — pre-trade risk-limit checks.
 - `replay.ml` — deterministic replay of a recorded event stream.
-- `metrics.ml` — run statistics for reporting and benchmarking.
+- `metrics.ml` — run statistics for reporting.
 
 ## Core invariants
 

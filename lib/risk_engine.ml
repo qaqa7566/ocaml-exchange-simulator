@@ -116,8 +116,6 @@ type t = { limits : Limits.t; accounts : account_state Account_map.t }
     (position 0) and no kill switches engaged. *)
 let empty limits = { limits; accounts = Account_map.empty }
 
-let limits t = t.limits
-
 let state_of t account =
   match Account_map.find_opt account t.accounts with
   | Some s -> s
@@ -229,8 +227,8 @@ let check t ~account ?reference_price (order : Order.t) : decision =
 
 (** [apply_fill t ~account ~side quantity] returns risk state with [account]'s
     position moved by an executed fill: a buy adds [quantity], a sell subtracts
-    it. This is the post-matching counterpart to {!check} that Phase 5 uses to
-    fold the matching engine's real fills into positions — one call per fill, per
+    it. This is the post-matching counterpart to {!check} that the replay layer
+    uses to fold the matching engine's real fills into positions — one call per fill, per
     account, threading the returned state. It is the {e only} way positions
     change, keeping the pre-trade check free of side effects. *)
 let apply_fill t ~account ~side quantity =

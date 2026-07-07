@@ -43,8 +43,6 @@ type t
     no kill switches engaged. *)
 val empty : Limits.t -> t
 
-val limits : t -> Limits.t
-
 (** [position t account] is the account's current net signed position (long
     positive, short negative), or 0 if the account is unknown. *)
 val position : t -> Account_id.t -> int

@@ -1,4 +1,4 @@
-(** Invariant-based tests for the limit order book (Phase 2: resting only).
+(** Invariant-based tests for the limit order book (resting only; no matching).
 
     Dependency-free: each check is an [assert]-style guard with a label, so a
     failure aborts the run and names the offending case. These exercise the
@@ -9,7 +9,7 @@
     Note: there is deliberately no "no crossed book" assertion here. This module
     performs no matching, so a bid added at or above the best ask legitimately
     rests and crosses the book; that invariant only holds once
-    {!Exchange.Matching_engine} exists. *)
+    {!Exchange.Matching_engine} has matched. *)
 
 open Exchange
 open Types

@@ -1,4 +1,4 @@
-(** Tests for deterministic replay (Phase 5).
+(** Tests for deterministic replay.
 
     Dependency-free, in the same style as the other suites: each check is an
     [assert]-like predicate labelled so a failure aborts the run and names the

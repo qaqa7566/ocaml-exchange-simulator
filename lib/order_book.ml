@@ -12,7 +12,7 @@
     {2 Representation}
 
     The book is immutable: every mutating operation returns a new {!t}. This
-    mirrors the functional style of the Phase 1 types, makes a book value a
+    mirrors the functional style of the core types, makes a book value a
     cheap, first-class snapshot (useful for deterministic replay and tests), and
     rules out aliasing bugs. The cost is allocation per update (the price maps
     rebalance and the priority-ordered level list is rebuilt on insert). A future

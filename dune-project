@@ -8,7 +8,7 @@
  (name ocaml-exchange-simulator)
  (synopsis "An exchange simulator and risk engine in OCaml")
  (description
-  "A deterministic limit order book, matching engine, and risk engine with replay and benchmarking support.")
+  "A deterministic limit order book, matching engine, and risk engine with deterministic replay and a CLI.")
  (depends
   (ocaml
    (>= 4.14))
