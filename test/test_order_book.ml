@@ -29,15 +29,21 @@ let ts = Timestamp.of_int
 let ok = function Ok v -> v | Error _ -> failwith "expected Ok"
 
 (* A validated limit order. [t] is both the id and the timestamp so that
-   arrival order is unambiguous in FIFO checks. *)
+   arrival order is unambiguous in priority checks. *)
 let mk_limit ~id ~side ~price ~qty =
   ok (Order.limit ~id:(oid id) ~side ~price ~quantity:qty ~timestamp:(ts id))
+
+(* A limit order whose timestamp is set independently of its id, so that arrival
+   order (the [add] order) and time priority (the timestamp) can differ. *)
+let mk_limit_ts ~id ~time ~side ~price ~qty =
+  ok (Order.limit ~id:(oid id) ~side ~price ~quantity:qty ~timestamp:(ts time))
 
 let add_ok book order = ok (Book.add book order)
 
 (* The ids resting at a given side, in full priority order (best price first,
    FIFO within a level). *)
 let bid_ids book = List.map (fun o -> Order_id.to_int (Order.id o)) (Book.bids book)
+let ask_ids book = List.map (fun o -> Order_id.to_int (Order.id o)) (Book.asks book)
 
 (* The distinct price levels of a side, best price first. *)
 let bid_prices book = List.map fst (Book.snapshot book).bid_levels
@@ -88,6 +94,42 @@ let () =
   check "fifo: single price level" (bid_prices b = [ 100 ]);
   check "fifo: arrival order preserved" (bid_ids b = [ 10; 11; 12 ]);
   check "fifo: best bid is earliest at price" (best_bid_id b = Some 10)
+
+(* --- Time priority: earlier timestamp rests ahead, even if added later - *)
+
+let () =
+  (* Three sells at the same price added in id order 1,2,3 but with timestamps
+     30,10,20. Time priority must order them by timestamp: 2 (t10), 3 (t20),
+     1 (t30) — i.e. NOT the order they were added. *)
+  let b = Book.empty in
+  let b = add_ok b (mk_limit_ts ~id:1 ~time:30 ~side:Sell ~price:100 ~qty:5) in
+  let b = add_ok b (mk_limit_ts ~id:2 ~time:10 ~side:Sell ~price:100 ~qty:5) in
+  let b = add_ok b (mk_limit_ts ~id:3 ~time:20 ~side:Sell ~price:100 ~qty:5) in
+  check "time-priority: single price level" (ask_prices b = [ 100 ]);
+  check "time-priority: ordered by timestamp, not insertion order"
+    (ask_ids b = [ 2; 3; 1 ]);
+  check "time-priority: best ask is earliest timestamp (id 2, t10)"
+    (best_ask_id b = Some 2)
+
+(* --- Equal timestamps fall back to arrival order ---------------------- *)
+
+let () =
+  (* Two bids share timestamp 5; a third has an earlier timestamp 1. The t1
+     order jumps ahead; the two t5 orders keep the order they were added in. *)
+  let b = Book.empty in
+  let b = add_ok b (mk_limit_ts ~id:1 ~time:5 ~side:Buy ~price:100 ~qty:5) in
+  let b = add_ok b (mk_limit_ts ~id:2 ~time:5 ~side:Buy ~price:100 ~qty:5) in
+  let b = add_ok b (mk_limit_ts ~id:3 ~time:1 ~side:Buy ~price:100 ~qty:5) in
+  check "tie: earlier timestamp first, then arrival order for the tie"
+    (bid_ids b = [ 3; 1; 2 ]);
+  check "tie: best bid is the earliest-timestamp order (id 3, t1)"
+    (best_bid_id b = Some 3);
+  (* All three equal timestamps: pure arrival order, deterministically. *)
+  let b = Book.empty in
+  let b = add_ok b (mk_limit_ts ~id:10 ~time:7 ~side:Buy ~price:100 ~qty:5) in
+  let b = add_ok b (mk_limit_ts ~id:11 ~time:7 ~side:Buy ~price:100 ~qty:5) in
+  let b = add_ok b (mk_limit_ts ~id:12 ~time:7 ~side:Buy ~price:100 ~qty:5) in
+  check "tie: equal timestamps preserve arrival order" (bid_ids b = [ 10; 11; 12 ])
 
 (* --- Cancellation removes only the target ----------------------------- *)
 

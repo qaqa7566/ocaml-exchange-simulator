@@ -217,4 +217,41 @@ let () =
   check "readable: rendering echoes the offending line text"
     (contains ~needle:"2,bob,1" rendered)
 
+(* --- 10. Rows out of timestamp order: time priority + determinism ----- *)
+
+let () =
+  (* alice's sell (timestamp 3) appears in the file before bob's sell
+     (timestamp 1), both resting at price 100. Time priority puts bob ahead of
+     alice despite arriving later in the file, so carol's buy of 4 must lift
+     bob's order, not alice's. The stream is deliberately not timestamp-sorted;
+     it is neither rejected nor reordered. *)
+  let csv =
+    "3,alice,1,sell,limit,100,5,\n\
+     1,bob,2,sell,limit,100,5,\n\
+     2,carol,3,buy,limit,100,4,"
+  in
+  let a = run_csv csv in
+  let b = run_csv csv in
+  check "out-of-order: no parse rejection for unsorted timestamps"
+    (a.Replay.metrics.events_processed = 3);
+  check "out-of-order: deterministic summary across runs"
+    (Replay.summary_to_string a = Replay.summary_to_string b);
+  check "out-of-order: deterministic positions across runs"
+    (a.Replay.positions = b.Replay.positions);
+  check "out-of-order: one fill of 4" (a.Replay.metrics.fills = 1 && a.Replay.metrics.traded_quantity = 4);
+  check "out-of-order: earlier-timestamp bob (t1) filled, short 4"
+    (Replay.position a (acct "bob") = -4);
+  check "out-of-order: later-timestamp alice (t3) untouched, still flat"
+    (Replay.position a (acct "alice") = 0);
+  check "out-of-order: carol long 4" (Replay.position a (acct "carol") = 4);
+  check "out-of-order: alice's full 5 still rests untouched"
+    (match Order_book.find a.Replay.book (Order_id.of_int 1) with
+    | Some (Order.Limit { quantity; _ }) -> Quantity.to_int quantity = 5
+    | _ -> false);
+  check "out-of-order: bob (earlier ts) is partially filled, 1 left as best ask"
+    (match Order_book.best_ask a.Replay.book with
+    | Some (Order.Limit { id; quantity; _ }) ->
+        Order_id.to_int id = 2 && Quantity.to_int quantity = 1
+    | _ -> false)
+
 let () = Printf.printf "test_replay: %d checks passed\n" !checks

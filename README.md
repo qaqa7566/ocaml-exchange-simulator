@@ -11,8 +11,8 @@ engine, deterministic replay of recorded order streams, and benchmarking.
 ## What it does
 
 - **Central limit order book** with **price-time priority**: orders are
-  matched best-price-first, and within a price level in **FIFO** (first-in,
-  first-out) order of arrival.
+  matched best-price-first, and within a price level by **earliest timestamp
+  first**; exact timestamp ties break by deterministic arrival order.
 - **Order types**: **market**, **limit**, and **cancel**.
 - **Partial fills**: an incoming order may execute against several resting
   orders; any unfilled remainder of a limit order rests on the book, while a
@@ -60,8 +60,11 @@ These hold at all times and are the basis for the test suite:
 
 1. **Sorted book** — bids are ordered by descending price, asks by ascending
    price. The best bid and best ask are always at the front of their sides.
-2. **Price-time priority** — among orders at the same price, the earliest to
-   arrive is filled first (FIFO).
+2. **Price-time priority** — orders are ranked by price first, then by
+   timestamp: among orders at the same price, the one with the earliest
+   timestamp is filled first. Orders may arrive out of timestamp order; each
+   still takes its correct time-priority slot. Exact timestamp ties break by
+   deterministic arrival order.
 3. **No crossed book** — after matching completes, the best bid price is
    strictly less than the best ask price; any crossing quantity has already
    traded.

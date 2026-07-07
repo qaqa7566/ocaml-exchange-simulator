@@ -29,6 +29,11 @@ let qty n = Option.get (Quantity.create n)
 let mk_limit ~id ~side ~price ~qty =
   ok (Order.limit ~id:(oid id) ~side ~price ~quantity:qty ~timestamp:(ts id))
 
+(* A limit whose timestamp is set independently of its id, so time priority and
+   the order of construction/insertion can be made to disagree. *)
+let mk_limit_ts ~id ~time ~side ~price ~qty =
+  ok (Order.limit ~id:(oid id) ~side ~price ~quantity:qty ~timestamp:(ts time))
+
 let mk_market ~id ~side ~qty =
   ok (Order.market ~id:(oid id) ~side ~quantity:qty ~timestamp:(ts id))
 
@@ -170,6 +175,58 @@ let () =
   check "fifo: id2 reduced to 1, still ahead of id3"
     (qty_of (Option.get (Book.best_ask r.ME.book)) = 1);
   check "fifo: uncrossed" (uncrossed r.ME.book)
+
+(* --- 7b. Time priority: earlier timestamp fills first ----------------- *)
+
+let () =
+  (* Three sells at the same price, rested in id order 1,2,3 but with timestamps
+     30,10,20. Time priority is 2 (t10), 3 (t20), 1 (t30). A buy of 3 must fill
+     the two earliest timestamps, not the two earliest-added. *)
+  let b =
+    rest
+      [
+        mk_limit_ts ~id:1 ~time:30 ~side:Sell ~price:100 ~qty:2;
+        mk_limit_ts ~id:2 ~time:10 ~side:Sell ~price:100 ~qty:2;
+        mk_limit_ts ~id:3 ~time:20 ~side:Sell ~price:100 ~qty:2;
+      ]
+  in
+  let r = ME.process b (mk_limit ~id:10 ~side:Buy ~price:100 ~qty:3) in
+  check "time-priority: fills earliest timestamps first (id2 then id3)"
+    (fills_summary r.ME.fills = [ (2, 100, 2); (3, 100, 1) ]);
+  check "time-priority: id1 (latest timestamp) untouched, id3 partially left"
+    (ask_ids r.ME.book = [ 3; 1 ]);
+  check "time-priority: best ask is the partially-filled id3 (t20)"
+    (best_ask_id r.ME.book = Some 3);
+  check "time-priority: uncrossed" (uncrossed r.ME.book)
+
+(* --- 7c. Partial fill preserves the original timestamp priority -------- *)
+
+let () =
+  (* id2 (t10) and id1 (t30) rest at 100. A first buy of 3 fully consumes id2
+     and takes 1 from id1, leaving id1 partially filled. A second buy must still
+     see id1 in its original time-priority slot (t30), and id5 (t40) rested
+     between the two buys must sit behind it — proving the partial fill did not
+     reset the resting order's timestamp/priority to "now". *)
+  let b =
+    rest
+      [
+        mk_limit_ts ~id:1 ~time:30 ~side:Sell ~price:100 ~qty:4;
+        mk_limit_ts ~id:2 ~time:10 ~side:Sell ~price:100 ~qty:2;
+      ]
+  in
+  let r = ME.process b (mk_limit ~id:3 ~side:Buy ~price:100 ~qty:3) in
+  check "partial-priority: earliest timestamp id2 filled first, then id1"
+    (fills_summary r.ME.fills = [ (2, 100, 2); (1, 100, 1) ]);
+  check "partial-priority: id1 left with 3 resting" (qty_of (Option.get (Book.best_ask r.ME.book)) = 3);
+  (* A newly rested sell with a later timestamp than id1 (t40 > t30). *)
+  let b2 = ok (Book.add r.ME.book (mk_limit_ts ~id:5 ~time:40 ~side:Sell ~price:100 ~qty:2)) in
+  check "partial-priority: partially-filled id1 keeps its slot ahead of newer id5"
+    (ask_ids b2 = [ 1; 5 ]);
+  let r2 = ME.process b2 (mk_limit ~id:6 ~side:Buy ~price:100 ~qty:3) in
+  check "partial-priority: next buy hits id1 (t30) before id5 (t40)"
+    (fills_summary r2.ME.fills = [ (1, 100, 3) ]);
+  check "partial-priority: only id5 remains after id1 exhausted"
+    (ask_ids r2.ME.book = [ 5 ])
 
 (* --- 8. Sell-side symmetry -------------------------------------------- *)
 

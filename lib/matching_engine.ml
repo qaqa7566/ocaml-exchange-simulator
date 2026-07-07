@@ -9,8 +9,9 @@
     {2 Priority}
 
     The book already exposes its best bid/ask with price-time priority baked in
-    (best price first, FIFO within a level), so the engine simply repeatedly
-    consumes the best opposing order. An incoming buy lifts the lowest asks; an
+    (best price first, and within a price level the earliest timestamp first —
+    arrival order breaking exact ties), so the engine simply repeatedly consumes
+    the best opposing order. An incoming buy lifts the lowest asks; an
     incoming sell hits the highest bids. Execution always happens at the {e
     resting} order's price, so an aggressive order that improves on the book is
     filled at the better resting price.
@@ -113,7 +114,7 @@ let match_against book ~incoming_side ~incoming_id ~limit ~remaining =
               { resting_id; incoming_id; price = rprice; quantity = traded_q; incoming_side }
             in
             (* [reduce] removes the resting order when [traded] exhausts it and
-               otherwise shrinks it in place, keeping FIFO order. *)
+               otherwise shrinks it in place, keeping its time-priority slot. *)
             let book = Order_book.reduce book resting_id traded_q in
             loop book (fill :: fills_rev) (remaining - traded)
   in
