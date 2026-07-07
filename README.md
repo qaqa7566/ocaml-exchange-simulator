@@ -4,8 +4,9 @@ An exchange simulator and risk engine written in OCaml. It models a
 central limit order book (CLOB) with a matching engine, a pre-trade risk
 engine, deterministic replay of recorded order streams, and benchmarking.
 
-> **Status:** early scaffolding. The matching engine and supporting modules
-> are stubbed out and not yet implemented.
+> **Status:** the order book, matching engine, risk engine, and a deterministic
+> end-to-end replay with a CLI are implemented. Async, networking, and
+> benchmarks are not built yet.
 
 ## What it does
 
@@ -76,10 +77,91 @@ These hold at all times and are the basis for the test suite:
 8. **Risk limits enforced** — an order that would breach a configured risk
    limit is rejected before it can affect the book.
 
-## Building
+## Building and running
 
 ```sh
-dune build          # build everything
-dune test           # run the test suite
-dune exec bin/main.exe   # run the simulator CLI
+dune build                                        # build everything
+dune test                                         # run the test suite
+dune exec bin/main.exe -- replay data/example_events.csv   # replay an event stream
 ```
+
+`replay` reads a recorded event stream, drives it deterministically through the
+risk and matching engines, and prints a summary — events processed,
+accepted/rejected, fills and traded quantity, cancels, the final best bid/ask,
+and final positions by account. Replaying the same file always prints the same
+summary (no wall-clock time, no randomness). Running the shipped example prints:
+
+```
+=== replay summary: data/example_events.csv ===
+events processed : 9
+accepted         : 8
+rejected         : 1
+fills            : 3
+traded quantity  : 15
+filled orders    : 2
+rested orders    : 4
+discarded orders : 1
+cancelled        : 1
+cancel misses    : 0
+best bid         : none
+best ask         : 105
+positions:
+  alice: -10
+  bob: 11
+  carol: -1
+```
+
+## Event-file format
+
+An event stream is a small CSV, one event per line. Lines beginning with `#`
+and blank lines are ignored; `#` comment headers are the recommended way to
+label columns (there is no separate header row). Order ids must be unique
+across the run. Columns:
+
+```
+timestamp,account,order_id,side,type,price,quantity,target
+```
+
+| column      | limit            | market            | cancel            |
+| ----------- | ---------------- | ----------------- | ----------------- |
+| `timestamp` | logical int (drives time priority) | ✓ | ✓ |
+| `account`   | owner id (string)| ✓                 | ✓                 |
+| `order_id`  | int, unique      | ✓                 | ✓                 |
+| `side`      | `buy` / `sell`   | `buy` / `sell`    | *(blank)*         |
+| `type`      | `limit`          | `market`          | `cancel`          |
+| `price`     | int ticks        | *(blank)*         | *(blank)*         |
+| `quantity`  | int              | int               | *(blank)*         |
+| `target`    | *(blank)*        | *(blank)*         | `order_id` to cancel |
+
+A cell that does not apply is left blank (or `-`). A **limit** order rests any
+unfilled remainder on the book; a **market** order never rests (any unfillable
+remainder is discarded); a **cancel** removes its `target` from the book.
+
+Example (see [`data/example_events.csv`](data/example_events.csv)):
+
+```
+# ts,account,order_id,side,type,price,quantity,target
+1,alice,1,sell,limit,101,10,
+2,bob,2,buy,limit,100,5,
+3,carol,3,buy,limit,101,4,
+4,carol,4,sell,market,,8,
+5,bob,5,buy,limit,101,6,
+6,alice,6,sell,limit,105,10,
+7,bob,7,buy,limit,103,4,
+8,bob,8,,cancel,,,7
+9,carol,9,buy,limit,100,5000,
+```
+
+### Design notes
+
+- **Account ownership of resting orders.** A fill names order ids, but an
+  `Order.t` carries no account, so applying a fill to *both* counterparties'
+  positions needs an `order_id → account` mapping. Rather than add an account
+  field to every order and the book (touching every module), the replay layer —
+  the single point every order passes through — keeps that map itself. Positions
+  therefore move only from real fills, attributed to real owners.
+- **Market-order reference price.** The risk engine needs a reference price to
+  value a market order (which has no price of its own). Replay values it at the
+  top of the opposing book it will trade against (best ask for a buy, best bid
+  for a sell), falling back to a configured default when that side is empty. A
+  limit order is valued at its own price.

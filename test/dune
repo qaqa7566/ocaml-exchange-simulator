@@ -1,3 +1,6 @@
 (tests
- (names test_order_book test_matching_engine test_order test_risk_engine)
+ (names test_order_book test_matching_engine test_order test_risk_engine
+   test_replay)
+ (deps
+  (glob_files %{project_root}/data/*.csv))
  (libraries exchange))

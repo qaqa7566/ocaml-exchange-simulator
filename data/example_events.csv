@@ -1,0 +1,18 @@
+# Example event stream for deterministic replay.
+# Schema: timestamp,account,order_id,side,type,price,quantity,target
+#   - blank cells (or "-") mean the field does not apply to that order type
+#   - limit  : side, price, quantity   (rests any unfilled remainder)
+#   - market : side, quantity          (never rests; unfilled remainder discarded)
+#   - cancel : target                  (order_id to remove from the book)
+# Lines beginning with '#' and blank lines are ignored. Order ids are unique.
+#
+# ts,account,order_id,side,type,price,quantity,target
+1,alice,1,sell,limit,101,10,
+2,bob,2,buy,limit,100,5,
+3,carol,3,buy,limit,101,4,
+4,carol,4,sell,market,,8,
+5,bob,5,buy,limit,101,6,
+6,alice,6,sell,limit,105,10,
+7,bob,7,buy,limit,103,4,
+8,bob,8,,cancel,,,7
+9,carol,9,buy,limit,100,5000,
